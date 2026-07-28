@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบ ร้านเป๋าตุง - จัดการร้านค้า</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🛍️ ระบบ ร้านเป๋าตุง - จัดการร้านค้า</h1>
+            <div class="header-info">
+                <span>วันที่: <span id="current-date"></span></span>
+                <span>เวลา: <span id="current-time"></span></span>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="sales">🛒 ขายสินค้า</button>
+            <button class="tab-btn" data-tab="inventory">📦 คลัง</button>
+            <button class="tab-btn" data-tab="report">📊 รายงาน</button>
+            <button class="tab-btn" data-tab="top-products">🏆 สินค้าขายดี</button>
+        </nav>
+
+        <!-- ===================== SALES SECTION ===================== -->
+        <div id="sales" class="tab-content active">
+            <div class="section">
+                <h2>ขายสินค้า</h2>
+                <div class="sales-container">
+                    <!-- Product Selection (left) -->
+                    <div class="product-section">
+                        <h3>เลือกสินค้า</h3>
+                        <div class="product-list" id="product-list">
+                            <p class="loading">กำลังโหลดสินค้า...</p>
+                        </div>
+                    </div>
+
+                    <!-- Cart (right) -->
+                    <div class="cart-section">
+                        <h3>🛒 ตะกร้าสินค้า</h3>
+                        <div class="cart-columns">
+                            <div class="cart-left">
+                                <div class="cart-items" id="cart-items">
+                                    <p class="empty-message">กรุณาเลือกสินค้า</p>
+                                </div>
+                                <div class="cart-summary">
+                                    <div class="summary-row">
+                                        <span>จำนวนรายการ:</span>
+                                        <strong id="cart-count">0</strong>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span>ยอดรวม:</span>
+                                        <strong id="cart-total">0.00</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="cart-right">
+                                <!-- Barcode Scanner -->
+                                <div class="barcode-section cart-barcode">
+                                    <label for="barcode-input">🔍 ค้นหาด้วยรหัสสินค้า (Barcode):</label>
+                                    <input type="text" id="barcode-input" placeholder="สแกนบาร์โค้ด หรือพิมพ์รหัสสินค้า แล้ว Enter">
+                                </div>
+
+                                <div class="payment-options">
+                                    <label>
+                                        <input type="radio" name="payment" value="cash" checked>
+                                        💵 เงินสด
+                                    </label>
+                                    <label>
+                                        <input type="radio" name="payment" value="transfer">
+                                        🏦 โอนธนาคาร
+                                    </label>
+                                </div>
+
+                                <div class="cash-controls" id="cash-controls">
+                                    <h5>รับเงิน / เงินทอน</h5>
+                                    <div class="denomination-buttons">
+                                        <button class="btn denom-btn" id="bill-1000">฿1,000</button>
+                                        <button class="btn denom-btn" id="bill-500">฿500</button>
+                                        <button class="btn denom-btn" id="bill-100">฿100</button>
+                                        <button class="btn denom-btn" id="bill-50">฿50</button>
+                                        <button class="btn denom-btn" id="bill-20">฿20</button>
+                                        
+                                    </div>
+
+                                    <!-- Coin buttons (separate, round) -->
+                                    <div class="coin-buttons">
+                                        <button class="coin-btn" id="coin-10">฿10</button>
+                                        <button class="coin-btn" id="coin-5">฿5</button>
+                                        <button class="coin-btn" id="coin-1">฿1</button>
+                                        <button class="btn" id="clear-received-btn">ล้าง</button>
+                                    </div>
+
+                                    <div class="received-row">
+                                        <label>รับเงิน:</label>
+                                        <input type="number" id="received-amount" min="0" step="0.01" value="0.00">
+                                    </div>
+
+                                    <div class="change-row">
+                                        <label>เงินทอน:</label>
+                                        <strong id="change-amount">0.00</strong>
+                                    </div>
+                                </div>
+
+                                    <div class="button-group">
+                                    <button class="btn btn-success" id="checkout-btn" onclick="openPaymentConfirmModal()">✅ ชำระเงิน</button>
+                                    <button class="btn btn-danger" id="clear-cart-btn">🗑️ ล้างตะกร้า</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== INVENTORY SECTION ===================== -->
+        <div id="inventory" class="tab-content">
+            <div class="section">
+                <div class="inventory-heading-row">
+                    <h2>คลังสินค้า</h2>
+                    <div class="inventory-summary-inline">
+                        <div class="inventory-total-pill">
+                            <span class="inventory-total-label">มูลค่ารวมสินค้าทั้งหมด</span>
+                            <span class="inventory-total-amount" id="inventory-total-value">0.00</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- ช่องกรอกรหัสสินค้า สำหรับสแกน/ค้นหา (เพิ่มสินค้าเอาออกแล้ว) -->
+                <div class="form-box">
+                    <h3>🔎 ค้นหาด้วยรหัสสินค้า</h3>
+                    <div class="form-grid">
+                        <input type="text" id="product-code" placeholder="สแกนหรือพิมพ์รหัสสินค้า แล้ว Enter เพื่อแก้ไข" autocomplete="off">
+                    </div>
+                </div>
+
+                <!-- Inventory Table -->
+                <div class="table-responsive">
+                    <h3>📋 รายการสินค้าทั้งหมด</h3>
+                    <div class="pagination-info">
+                        <span id="pagination-text">แสดง <span id="current-page">1</span> จาก <span id="total-pages">1</span> หน้า</span>
+                    </div>
+                    <table id="inventory-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;">ลำดับ</th>
+                                <th class="sortable" data-sort="code">รหัส <span class="sort-icon">⇅</span></th>
+                                <th class="sortable" data-sort="name">ชื่อสินค้า <span class="sort-icon">⇅</span></th>
+                                <th class="sortable" data-sort="price">ราคา <span class="sort-icon">⇅</span></th>
+                                <th class="sortable" data-sort="quantity">จำนวน <span class="sort-icon">⇅</span></th>
+                                <th class="sortable" data-sort="expiryDate">วันหมดอายุ <span class="sort-icon">⇅</span></th>
+                                <th>การดำเนินการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-tbody">
+                            <tr><td colspan="5" class="loading">กำลังโหลดข้อมูล...</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination-selector">
+                        <label for="items-per-page-select">แสดงผล:</label>
+                        <select id="items-per-page-select">
+                            <option value="10">10</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                        <span>รายการต่อหน้า</span>
+                    </div>
+                    <div class="pagination-controls" id="pagination">
+                        <button class="btn btn-secondary" id="prev-page-btn">← หน้าก่อนหน้า</button>
+                        <div id="page-numbers"></div>
+                        <button class="btn btn-secondary" id="next-page-btn">หน้าถัดไป →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== REPORT SECTION ===================== -->
+        <div id="report" class="tab-content">
+            <div class="section">
+                <h2>รายงานยอดขาย</h2>
+                
+                <!-- Date Picker -->
+                <div class="report-controls">
+                    <div class="report-type">
+                        <label><input type="radio" name="report-type" value="day" checked> รายวัน</label>
+                        <label><input type="radio" name="report-type" value="month"> รายเดือน</label>
+                    </div>
+
+                    <div class="report-inputs">
+                        <div class="report-date-input">
+                            <label for="report-date">เลือกวันที่:</label>
+                            <input type="date" id="report-date">
+                        </div>
+                        <div class="report-month-input" style="display:none;">
+                            <label for="report-month">เลือกเดือน:</label>
+                            <div class="month-controls">
+                                <button class="btn btn-secondary" id="report-prev-month">◀</button>
+                                <input type="month" id="report-month">
+                                <button class="btn btn-secondary" id="report-next-month">▶</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" id="generate-report-btn">📊 ดูรายงาน</button>
+                </div>
+
+                <!-- Report Summary -->
+                <div class="report-summary">
+                    <div class="summary-card">
+                        <h4>ยอดขายรวม</h4>
+                        <p class="amount" id="report-total-sale">0.00</p>
+                    </div>
+                    <div class="summary-card danger">
+                        <h4>ยอดคืนรวม</h4>
+                        <p class="amount" id="report-total-refund">0.00</p>
+                    </div>
+                    <div class="summary-card">
+                        <h4>เงินสด</h4>
+                        <p class="amount" id="report-cash">0.00</p>
+                    </div>
+                    <div class="summary-card">
+                        <h4>โอนธนาคาร</h4>
+                        <p class="amount" id="report-transfer">0.00</p>
+                    </div>
+                    <div class="summary-card">
+                        <h4>กำไร 15%</h4>
+                        <p class="amount" id="report-fee15">0.00</p>
+                    </div>
+                    <div class="summary-card highlight">
+                        <h4>ยอดสุทธิหลังหัก 15%</h4>
+                        <p class="amount" id="report-net-after-fee">0.00</p>
+                    </div>
+                    <div class="summary-card highlight">
+                        <h4>ยอดสุทธิ</h4>
+                        <p class="amount" id="report-net">0.00</p>
+                    </div>
+                </div>
+
+                <!-- Transactions Table -->
+                <div class="table-responsive">
+                    <h3>📝 รายการทั้งหมด</h3>
+                    <table id="transactions-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;">ลำดับ</th>
+                                <th>เวลา</th>
+                                <th>ประเภท</th>
+                                <th>รหัส</th>
+                                <th>ชื่อสินค้า</th>
+                                <th>หน่วยละราคา</th>
+                                <th>จำนวน</th>
+                                <th>รวม</th>
+                                <th>วิธีชำระ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactions-tbody">
+                            <tr><td colspan="8" class="loading">กรุณาเลือกวันที่ดูรายงาน</td></tr>
+                        </tbody>
+                    </table>
+                    
+                    <div class="pagination-selector">
+                        <label for="report-items-per-page-select">แสดงผล:</label>
+                        <select id="report-items-per-page-select">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                        </select>
+                        <span>รายการต่อหน้า</span>
+                    </div>
+                    
+                    <!-- Pagination for Transactions -->
+                    <div class="pagination">
+                        <button class="page-btn" id="report-prev-btn">← ก่อนหน้า</button>
+                        <span class="page-info" id="report-page-info">หน้า 1</span>
+                        <button class="page-btn" id="report-next-btn">ถัดไป →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== TOP PRODUCTS SECTION ===================== -->
+        <div id="top-products" class="tab-content">
+            <div class="section">
+                <h2>🏆 สินค้าขายดี</h2>
+
+                <div class="report-controls">
+                    <div class="report-type">
+                        <label><input type="radio" name="top-products-type" value="day" checked> รายวัน</label>
+                        <label><input type="radio" name="top-products-type" value="month"> รายเดือน</label>
+                    </div>
+
+                    <div class="report-inputs">
+                        <div class="top-products-date-input">
+                            <label for="top-products-date">เลือกวันที่:</label>
+                            <input type="date" id="top-products-date">
+                        </div>
+                        <div class="top-products-month-input" style="display:none;">
+                            <label for="top-products-month">เลือกเดือน:</label>
+                            <div class="month-controls">
+                                <button class="btn btn-secondary" id="top-products-prev-month">◀</button>
+                                <input type="month" id="top-products-month">
+                                <button class="btn btn-secondary" id="top-products-next-month">▶</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" id="generate-top-products-btn">🏆 ดูสินค้าขายดี</button>
+                </div>
+
+                <div class="table-responsive">
+                    <h3>📈 10 อันดับสินค้าขายดี</h3>
+                    <p id="top-products-info" class="pagination-info">กรุณาเลือกช่วงเวลา</p>
+                    <table id="top-products-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;">อันดับ</th>
+                                <th>รหัส</th>
+                                <th>ชื่อสินค้า</th>
+                                <th>จำนวนขาย</th>
+                                <th>ยอดขาย</th>
+                            </tr>
+                        </thead>
+                        <tbody id="top-products-tbody">
+                            <tr><td colspan="5" class="loading">กรุณาเลือกช่วงเวลา</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Quantity Input -->
+    <div id="quantity-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>ป้อนจำนวน</h3>
+            <div id="product-info"></div>
+            <div class="quantity-control">
+                <button class="qty-btn qty-minus" id="qty-minus-btn">−</button>
+                <input type="number" id="quantity-input" placeholder="จำนวน" min="1" value="1">
+                <button class="qty-btn qty-plus" id="qty-plus-btn">+</button>
+            </div>
+            <div class="button-group">
+                <button class="btn btn-success" id="confirm-quantity-btn">ยืนยัน</button>
+                <button class="btn btn-secondary" id="cancel-quantity-btn">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Confirmation Modal -->
+    <div id="payment-confirm-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="payment-confirm-close">&times;</span>
+            <h3>ยืนยันการชำระเงิน</h3>
+            <div id="payment-confirm-details">
+                <div style="margin-bottom:12px; font-weight:600;">สินค้า</div>
+                <ul id="confirm-items" style="max-height:120px; overflow:auto; margin-bottom:12px; padding-left:18px;"></ul>
+
+                <div id="confirm-received-row" style="display:flex; justify-content:space-between; margin-bottom:6px;"><div>รับเงิน</div><div id="confirm-received">0.00</div></div>
+                <div id="confirm-change-row" style="display:flex; justify-content:space-between; margin-bottom:6px;"><div>เงินทอน</div><div id="confirm-change">0.00</div></div>
+                <div id="confirm-payment-type-row" style="display:flex; justify-content:space-between; margin-bottom:6px;"><div>ประเภทการจ่าย</div><div id="confirm-payment-type">-</div></div>
+
+                <hr style="margin:8px 0;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><div>ยอดรวม</div><div id="confirm-total">0.00</div></div>
+                <!-- <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><div>หัก 15%</div><div id="confirm-fee15">0.00</div></div> -->
+                <!-- <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><div>ยอดหลังหัก</div><div id="confirm-net-after">0.00</div></div> -->
+                <!-- <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><div>สถานะ</div><div id="confirm-status">-</div></div> -->
+            </div>
+            <div class="button-group">
+                <button class="btn btn-success" id="confirm-payment-btn">ยืนยันชำระ (enter)</button>
+                <button class="btn btn-secondary" id="cancel-payment-btn">ยกเลิก (esc)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Refund Modal -->
+    <div id="refund-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>คืนสินค้า</h3>
+            <div id="refund-product-info"></div>
+            <div class="quantity-control">
+                <button class="qty-btn qty-minus" id="refund-qty-minus-btn">−</button>
+                <input type="number" id="refund-qty-input" placeholder="จำนวนที่ต้องการคืน" min="1" value="1">
+                <button class="qty-btn qty-plus" id="refund-qty-plus-btn">+</button>
+            </div>
+            <div class="button-group">
+                <button class="btn btn-warning" id="confirm-refund-btn">✅ ยืนยันการคืน</button>
+                <button class="btn btn-secondary" id="cancel-refund-btn">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Product Modal -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>🔧 แก้ไขสินค้า</h3>
+            <div id="edit-product-info"></div>
+            <div class="edit-form-group">
+                <label>ชื่อสินค้า</label>
+                <input type="text" id="edit-name" placeholder="ชื่อสินค้า" required>
+            </div>
+            <div class="edit-form-group">
+                <label>ราคา</label>
+                <input type="number" id="edit-price" placeholder="ราคา" min="0" step="0.01" required>
+            </div>
+            <div class="edit-form-group">
+                <label>จำนวน (ค่าใหม่จะแทนที่ค่าเดิม)</label>
+                <div class="quantity-control">
+                    <button type="button" class="qty-btn qty-minus" id="edit-qty-minus-btn">−</button>
+                    <input type="number" id="edit-qty" placeholder="จำนวน" min="0" value="0" required>
+                    <button type="button" class="qty-btn qty-plus" id="edit-qty-plus-btn">+</button>
+                </div>
+            </div>
+            <div class="edit-form-group">
+                <label>วันหมดอายุ (ไม่บังคับ)</label>
+                <input type="date" id="edit-expiry-date" placeholder="เลือกวันที่หมดอายุ">
+            </div>
+            <div class="button-group">
+                <button class="btn btn-success" id="confirm-edit-btn">✅ บันทึกการแก้ไข</button>
+                <button class="btn btn-danger" id="delete-product-btn">🗑️ ลบสินค้า</button>
+                <button class="btn btn-secondary" id="cancel-edit-btn">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification"></div>
+
+    <!-- Add Product Modal (shown when scanned barcode not found) -->
+    <div id="add-product-modal" class="modal">
+        <div class="modal-content">
+            <span class="close add-product-close">&times;</span>
+            <h3>➕ เพิ่มสินค้าใหม่</h3>
+            <form id="add-product-modal-form" class="form-grid">
+                <label>รหัสสินค้า</label>
+                <input type="text" id="add-product-code" readonly>
+
+                <label>ชื่อสินค้า</label>
+                <input type="text" id="add-product-name" placeholder="ชื่อสินค้า" required>
+
+                <label>ราคา</label>
+                <input type="number" id="add-product-price" placeholder="ราคา" min="0" step="0.01" value="0.00" required>
+
+                <label>จำนวน</label>
+                <input type="number" id="add-product-qty" placeholder="จำนวน" min="0" value="1" required>
+            </form>
+            <div class="button-group">
+                <button class="btn btn-success" id="confirm-add-btn">เพิ่มสินค้า</button>
+                <button class="btn btn-secondary" id="cancel-add-btn">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js?v=20260711"></script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+# Node
+node_modules/
+npm-debug.log*
+package-lock.json
+yarn.lock
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs
+*.log
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# VS Code
+.vscode/
+
+# Build
+dist/
+build/
+
+# Coverage
+coverage/
+
+# Database
+*.sqlite
+*.db
+
+# Others
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Ignore compiled JS (if using TypeScript)
+*.tsbuildinfo
+
+# Ignore local data folder if it contains runtime data
+/data/*.db
+/data/*.sqlite
+/data/*.xlsx
