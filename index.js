@@ -440,10 +440,14 @@ app.get('/api/report', (req, res) => {
     }
 
     const totalSale = sales.filter((r) => r.type === 'sale').reduce((sum, r) => sum + Number(r.total), 0);
-    const totalRefund = sales.filter((r) => r.type === 'refund').reduce((sum, r) => sum + Number(r.total), 0);
+    const totalRefund = sales
+      .filter((r) => r.type === 'refund')
+      .reduce((sum, r) => sum + Math.abs(Number(r.total)), 0);
     const cash = sales.filter((r) => r.payment === 'cash').reduce((sum, r) => sum + Number(r.total), 0);
     const transfer = sales.filter((r) => r.payment === 'transfer').reduce((sum, r) => sum + Number(r.total), 0);
 
+    const totalNet = totalSale - totalRefund;
+    const fee15 = parseFloat((totalNet * 0.15).toFixed(2));
     res.json({
       success: true,
       data: {
@@ -452,10 +456,10 @@ app.get('/api/report', (req, res) => {
         totalRefund: parseFloat(totalRefund.toFixed(2)),
         cash: parseFloat(cash.toFixed(2)),
         transfer: parseFloat(transfer.toFixed(2)),
-        net: parseFloat((totalSale + totalRefund).toFixed(2)),
+        net: parseFloat(totalNet.toFixed(2)),
         // 15% deduction (e.g., fee or cost). Provide both fee and net-after-fee.
-        fee15: parseFloat((totalSale * 0.15).toFixed(2)),
-        netAfterFee: parseFloat((totalSale - (totalSale * 0.15)).toFixed(2)),
+        fee15,
+        netAfterFee: parseFloat((totalNet - fee15).toFixed(2)),
         transactions: sales
       }
     });

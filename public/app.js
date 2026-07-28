@@ -1264,15 +1264,15 @@ function clearCart() {
     }
 }
 
-function openRefundModal(code, name, maxQty) {
+function openRefundModal(code, name, maxQty, source = 'cart') {
     document.getElementById('refund-product-info').innerHTML = `
         <strong>${name}</strong><br>
         รหัส: ${code}<br>
-        จำนวนในตะกร้า: ${maxQty}<br>
+        จำนวนสูงสุดที่คืนได้: ${maxQty}<br>
         <hr style="margin: 8px 0;">
-        <strong>จะคืน: <span id="refund-qty-show">1</span> ชิ้น</strong>
+        <strong>จะคืน: <span id="refund-qty-show">${maxQty}</span> ชิ้น</strong>
     `;
-    document.getElementById('refund-qty-input').value = 1;
+    document.getElementById('refund-qty-input').value = maxQty;
     document.getElementById('refund-qty-input').max = maxQty;
     
     // Event listener for real-time quantity display
@@ -1284,7 +1284,7 @@ function openRefundModal(code, name, maxQty) {
         document.getElementById('refund-qty-show').textContent = val;
     });
     
-    selectedProductForModal = { code, maxQty };
+    selectedProductForModal = { code, maxQty, source };
     refundModal.classList.add('show');
 }
 
@@ -1501,11 +1501,14 @@ async function loadReport() {
         document.getElementById('report-cash').textContent = formatMoney(data.cash);
         document.getElementById('report-transfer').textContent = formatMoney(data.transfer);
         // 15% fee and net-after-fee (server may provide these fields)
-        const fee15 = (data.fee15 !== undefined) ? Number(data.fee15) : parseFloat((data.totalSale * 0.15).toFixed(2));
-        const netAfter = (data.netAfterFee !== undefined) ? Number(data.netAfterFee) : parseFloat((data.totalSale - fee15).toFixed(2));
+        const totalSale = Number(data.totalSale) || 0;
+        const totalRefund = Math.abs(Number(data.totalRefund) || 0);
+        const totalNet = totalSale - totalRefund;
+        const fee15 = (data.fee15 !== undefined) ? Number(data.fee15) : parseFloat((totalNet * 0.15).toFixed(2));
+        const netAfter = (data.netAfterFee !== undefined) ? Number(data.netAfterFee) : parseFloat((totalNet - fee15).toFixed(2));
         if (document.getElementById('report-fee15')) document.getElementById('report-fee15').textContent = formatMoney(fee15);
         if (document.getElementById('report-net-after-fee')) document.getElementById('report-net-after-fee').textContent = formatMoney(netAfter);
-        document.getElementById('report-net').textContent = formatMoney(data.net);
+        document.getElementById('report-net').textContent = formatMoney(totalNet);
         
         // Update transactions table with pagination
         if (!data.transactions.length) {
@@ -1527,7 +1530,7 @@ async function loadReport() {
 
 function displayTransactionsPage(transactions) {
     if (!transactions || !transactions.length) {
-        transactionsTbodyEl.innerHTML = '<tr><td colspan="9" class="empty-message">ไม่มีรายการ</td></tr>';
+        transactionsTbodyEl.innerHTML = '<tr><td colspan="10" class="empty-message">ไม่มีรายการ</td></tr>';
         document.getElementById('report-page-info').textContent = 'หน้า 0';
         return;
     }
@@ -1558,7 +1561,8 @@ function displayTransactionsPage(transactions) {
             <td>฿${formatMoney(tx.unitPrice)}</td>
             <td>${Math.abs(tx.quantity)}</td>
             <td>฿${formatMoney(tx.total)}</td>
-            <td>${tx.payment === 'cash' ? '💵 เงินสด' : '🏦 โอนธนาคาร'}</td>
+            <td>${tx.payment === 'cash' ? '💵 เงินสด' : tx.payment === 'transfer' ? '🏦 โอนธนาคาร' : '🔄 คืน'}</td>
+            <td>${tx.type === 'sale' ? `<button class="btn btn-refund" onclick="openRefundModal('${tx.code}', '${tx.name}', ${Math.abs(tx.quantity)}, 'report')">🔁 คืน</button>` : ''}</td>
         </tr>
     `).join('');
     
