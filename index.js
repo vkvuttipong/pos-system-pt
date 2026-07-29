@@ -124,20 +124,17 @@ function addProduct(code, name, price, qty, expiryDate = '') {
     inv.push({ code, name, price: Number(price), quantity: Number(qty), expiryDate: normalizedExpiry });
   }
   saveInventory(inv);
-  console.log(`เพิ่ม/ปรับรายการ: ${code} | ${name} | ราคา ${price} | จำนวน ${qty} | วันหมดอายุ ${normalizedExpiry || '-'}`);
 }
 
 function changeStock(code, delta) {
   const inv = loadInventory();
   const item = inv.find((i) => i.code === code);
   if (!item) {
-    console.log('ไม่พบสินค้าในคลัง');
     return;
   }
   item.quantity = Number(item.quantity) + Number(delta);
   if (item.quantity < 0) item.quantity = 0;
   saveInventory(inv);
-  console.log(`ปรับสต็อกเรียบร้อย: ${code} = ${item.quantity}`);
 }
 
 function recordTransaction(type, code, qty, payment) {
@@ -164,61 +161,43 @@ function sellItem(code, qty, payment) {
   const inv = loadInventory();
   const item = inv.find((i) => i.code === code);
   if (!item) {
-    console.log('สินค้าไม่ถูกต้อง');
     return;
   }
   if (Number(item.quantity) < Math.abs(Number(qty))) {
-    console.log('สินค้าคงเหลือไม่เพียงพอ');
     return;
   }
   item.quantity = Number(item.quantity) - Number(qty);
   saveInventory(inv);
   recordTransaction('sale', code, Number(qty), payment);
-  console.log(`ขายสินค้า: ${code} จำนวน ${qty} ชิ้น โดย ${payment}`);
 }
 
 function refundItem(code, qty) {
   const inv = loadInventory();
   const item = inv.find((i) => i.code === code);
   if (!item) {
-    console.log('สินค้าไม่ถูกต้อง');
     return;
   }
   item.quantity = Number(item.quantity) + Number(qty);
   saveInventory(inv);
   recordTransaction('refund', code, Number(qty), 'refund');
-  console.log(`คืนสินค้า: ${code} จำนวน ${qty} ชิ้น`);
 }
 
 function showInventory() {
   const inv = loadInventory();
   if (!inv.length) {
-    console.log('ไม่พบข้อมูลสินค้าในคลัง');
     return;
   }
-  console.log('สินค้าคงคลัง:');
-  inv.forEach((i) => {
-    console.log(`- ${i.code} | ${i.name} | ราคา ${i.price} | จำนวน ${i.quantity}`);
-  });
 }
 
 function dailyReport(date = null) {
   const sales = loadDailySales(date);
   if (!sales.length) {
-    console.log('ไม่มียอดขายวันนี้หรือวันที่เลือก');
     return;
   }
   const totalSale = sales.filter((r) => r.type === 'sale').reduce((sum, r) => sum + Number(r.total), 0);
   const totalRefund = sales.filter((r) => r.type === 'refund').reduce((sum, r) => sum + Number(r.total), 0);
   const cash = sales.filter((r) => r.payment === 'cash').reduce((sum, r) => sum + Number(r.total), 0);
   const transfer = sales.filter((r) => r.payment === 'transfer').reduce((sum, r) => sum + Number(r.total), 0);
-
-  console.log(`สรุปยอดขายวันที่ ${date || moment().format('YYYY-MM-DD')}`);
-  console.log(`- ยอดขายรวม: ${formatMoney(totalSale)}`);
-  console.log(`- ยอดคืนรวม: ${formatMoney(totalRefund)}`);
-  console.log(`- ยอดเงินสด: ${formatMoney(cash)}`);
-  console.log(`- ยอดโอนธนาคาร: ${formatMoney(transfer)}`);
-  console.log(`- ยอดสุทธิ: ${formatMoney(totalSale + totalRefund)}`);
 }
 
 function getSalesForPeriod(date = null, monthRaw = null) {
@@ -386,8 +365,6 @@ app.get('/api/report', (req, res) => {
       if (/^[0-9]{6}$/.test(digits)) month = digits;
     }
 
-    console.log(`/api/report called - date=${date || ''} monthRaw=${monthRaw || ''} month=${month || ''}`);
-
     let sales = [];
     let label = null;
 
@@ -395,7 +372,6 @@ app.get('/api/report', (req, res) => {
       // aggregate all daily files for the given month (YYYYMM)
       ensureDataDir();
       const files = fs.readdirSync(DATA_DIR).filter(f => new RegExp('^' + month + '\\d{2}\\.xlsx$').test(f));
-      console.log('  matched files:', files);
       if (files.length === 0) {
         const label = `${month.slice(0,4)}-${month.slice(4,6)}`;
         return res.json({
@@ -500,5 +476,4 @@ app.delete('/api/product/:code', (req, res) => {
 // Start server
 app.listen(PORT, () => {
   ensureDataDir();
-  console.log(`🚀 POS System running at http://localhost:${PORT}`);
 });

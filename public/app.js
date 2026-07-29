@@ -132,7 +132,6 @@ function setupEventListeners() {
     if (checkoutBtn) {
         checkoutBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            console.log('checkout clicked - opening payment confirm modal');
             openPaymentConfirmModal();
         });
     }
@@ -207,8 +206,6 @@ function setupEventListeners() {
             e.target.closest('.modal').classList.remove('show');
         });
     });
-
-    console.log('setupEventListeners completed');
 
     // Add-product modal handlers
     if (confirmAddBtn) {
@@ -540,7 +537,6 @@ function setupEventListeners() {
     if (confirmPaymentBtn) confirmPaymentBtn.addEventListener('click', () => {
         // call existing checkout handler
         // hide modal first
-        console.log('confirm-payment clicked - proceeding to checkout');
         if (paymentConfirmModal) paymentConfirmModal.classList.remove('show');
         checkout();
     });
