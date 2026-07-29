@@ -111,6 +111,35 @@ function saveDailySales(sales, date = null) {
   XLSX.writeFile(wb, file);
 }
 
+function getOrderCounterFile() {
+  return path.join(DATA_DIR, 'order-counter.json');
+}
+
+function loadOrderCounters() {
+  const counterFile = getOrderCounterFile();
+  if (!fs.existsSync(counterFile)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(counterFile, 'utf8'));
+  } catch (err) {
+    return {};
+  }
+}
+
+function saveOrderCounters(counters) {
+  ensureDataDir();
+  fs.writeFileSync(getOrderCounterFile(), JSON.stringify(counters, null, 2));
+}
+
+function generateOrderId(date = null) {
+  const d = date ? moment(date, 'YYYYMMDD') : moment();
+  const dayKey = d.isValid() ? d.format('YYMMDD') : moment().format('YYMMDD');
+  const counters = loadOrderCounters();
+  const nextSequence = Number(counters[dayKey] || 0) + 1;
+  counters[dayKey] = nextSequence;
+  saveOrderCounters(counters);
+  return `S${String(nextSequence).padStart(5, '0')}`;
+}
+
 function addProduct(code, name, price, qty, expiryDate = '') {
   const inv = loadInventory();
   const idx = inv.findIndex((i) => i.code === code);
@@ -137,13 +166,14 @@ function changeStock(code, delta) {
   saveInventory(inv);
 }
 
-function recordTransaction(type, code, qty, payment) {
+function recordTransaction(type, code, qty, payment, orderId = null) {
   const inv = loadInventory();
   const item = inv.find((i) => i.code === code);
-  if (!item) return;
+  if (!item) return null;
   const now = moment();
   const amount = Number(item.price) * Number(qty) * (type === 'refund' ? -1 : 1);
   const sales = loadDailySales();
+  const resolvedOrderId = orderId || (type === 'sale' ? generateOrderId() : null);
   sales.push({
     datetime: now.format('YYYY-MM-DD HH:mm:ss'),
     type,
@@ -152,34 +182,36 @@ function recordTransaction(type, code, qty, payment) {
     unitPrice: item.price,
     quantity: Number(qty) * (type === 'refund' ? -1 : 1),
     total: amount,
-    payment: type === 'sale' ? payment : 'refund'
+    payment: type === 'sale' ? payment : 'refund',
+    orderId: resolvedOrderId
   });
   saveDailySales(sales);
+  return resolvedOrderId;
 }
 
-function sellItem(code, qty, payment) {
+function sellItem(code, qty, payment, orderId = null) {
   const inv = loadInventory();
   const item = inv.find((i) => i.code === code);
   if (!item) {
-    return;
+    return null;
   }
   if (Number(item.quantity) < Math.abs(Number(qty))) {
-    return;
+    return null;
   }
   item.quantity = Number(item.quantity) - Number(qty);
   saveInventory(inv);
-  recordTransaction('sale', code, Number(qty), payment);
+  return recordTransaction('sale', code, Number(qty), payment, orderId);
 }
 
 function refundItem(code, qty) {
   const inv = loadInventory();
   const item = inv.find((i) => i.code === code);
   if (!item) {
-    return;
+    return null;
   }
   item.quantity = Number(item.quantity) + Number(qty);
   saveInventory(inv);
-  recordTransaction('refund', code, Number(qty), 'refund');
+  return recordTransaction('refund', code, Number(qty), 'refund');
 }
 
 function showInventory() {
@@ -281,15 +313,54 @@ app.post('/api/stock', (req, res) => {
 // Record sale transaction
 app.post('/api/sell', (req, res) => {
   try {
-    const { code, quantity, payment } = req.body;
+    const { code, quantity, payment, orderId } = req.body;
     if (!code || quantity === undefined || !payment) {
       return res.status(400).json({ success: false, error: 'ข้อมูลไม่ครบถ้วน' });
     }
     if (!['cash', 'transfer'].includes(payment)) {
       return res.status(400).json({ success: false, error: 'ประเภทการชำระเงินไม่ถูกต้อง' });
     }
-    sellItem(code, Number(quantity), payment);
-    res.json({ success: true, message: 'ขายสินค้าสำเร็จ' });
+    const generatedOrderId = sellItem(code, Number(quantity), payment, orderId);
+    res.json({ success: true, message: 'ขายสินค้าสำเร็จ', orderId: generatedOrderId || orderId || null });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Record an entire checkout order with one shared order ID
+app.post('/api/checkout', (req, res) => {
+  try {
+    const { items, payment } = req.body;
+    if (!Array.isArray(items) || !items.length || !payment) {
+      return res.status(400).json({ success: false, error: 'ข้อมูลไม่ครบถ้วน' });
+    }
+    if (!['cash', 'transfer'].includes(payment)) {
+      return res.status(400).json({ success: false, error: 'ประเภทการชำระเงินไม่ถูกต้อง' });
+    }
+
+    const inv = loadInventory();
+    const normalizedItems = items.map((item) => ({
+      code: String(item.code || '').trim(),
+      quantity: Number(item.quantity) || 0
+    })).filter((item) => item.code && item.quantity > 0);
+
+    if (!normalizedItems.length) {
+      return res.status(400).json({ success: false, error: 'ไม่มีรายการในตะกร้า' });
+    }
+
+    for (const item of normalizedItems) {
+      const inventoryItem = inv.find((entry) => entry.code === item.code);
+      if (!inventoryItem || Number(inventoryItem.quantity) < Number(item.quantity)) {
+        return res.status(400).json({ success: false, error: `สินค้า ${item.code} มีจำนวนไม่เพียงพอ` });
+      }
+    }
+
+    const orderId = generateOrderId();
+    normalizedItems.forEach((item) => {
+      sellItem(item.code, Number(item.quantity), payment, orderId);
+    });
+
+    res.json({ success: true, message: 'ขายสินค้าสำเร็จ', orderId });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

@@ -46,6 +46,8 @@ const productCodeInput = document.getElementById('product-code');
 const inventoryTotalValueEl = document.getElementById('inventory-total-value');
 // Payment confirm modal elements
 const paymentConfirmModal = document.getElementById('payment-confirm-modal');
+const orderDetailsModal = document.getElementById('order-details-modal');
+const orderDetailsContentEl = document.getElementById('order-details-content');
 const confirmTotalEl = document.getElementById('confirm-total');
 const confirmFeeEl = document.getElementById('confirm-fee15');
 const confirmNetAfterEl = document.getElementById('confirm-net-after');
@@ -206,6 +208,12 @@ function setupEventListeners() {
             e.target.closest('.modal').classList.remove('show');
         });
     });
+
+    if (document.getElementById('order-details-close')) {
+        document.getElementById('order-details-close').addEventListener('click', () => {
+            if (orderDetailsModal) orderDetailsModal.classList.remove('show');
+        });
+    }
 
     // Add-product modal handlers
     if (confirmAddBtn) {
@@ -745,6 +753,50 @@ function showNotification(message, type = 'success') {
     setTimeout(() => {
         notificationEl.classList.remove('show');
     }, 3000);
+}
+
+function openOrderDetailsModal(orderId) {
+    if (!orderId || !transactionsData || !transactionsData.length) return;
+
+    const matches = transactionsData.filter((tx) => String(tx.orderId || '') === String(orderId));
+    if (!matches.length) return;
+
+    const total = matches.reduce((sum, tx) => sum + Number(tx.total || 0), 0);
+    const payment = matches[0].payment || '-';
+    const firstTime = matches[0].datetime || '-';
+
+    if (orderDetailsContentEl) {
+        orderDetailsContentEl.innerHTML = `
+            <div style="display:grid; gap:10px;">
+                <div style="display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid #eee;"><strong>เลขออเดอร์</strong><span>${orderId}</span></div>
+                <div style="display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid #eee;"><strong>เวลา</strong><span>${firstTime}</span></div>
+                <div style="display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid #eee;"><strong>วิธีชำระ</strong><span>${payment === 'cash' ? '💵 เงินสด' : payment === 'transfer' ? '🏦 โอนธนาคาร' : '🔄 คืน'}</span></div>
+                <div style="display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid #eee;"><strong>ยอดรวม</strong><span>฿${formatMoney(total)}</span></div>
+                <table style="width:100%; border-collapse:collapse; margin-top:8px;">
+                    <thead>
+                        <tr style="background:#f7f9fc; text-align:left;">
+                            <th style="padding:8px; border-bottom:1px solid #eee;">สินค้า</th>
+                            <th style="padding:8px; border-bottom:1px solid #eee;">จำนวน</th>
+                            <th style="padding:8px; border-bottom:1px solid #eee;">รวม</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${matches.map((tx) => `
+                            <tr>
+                                <td style="padding:8px; border-bottom:1px solid #eee;">${tx.name || tx.code}</td>
+                                <td style="padding:8px; border-bottom:1px solid #eee;">${Math.abs(Number(tx.quantity) || 0)}</td>
+                                <td style="padding:8px; border-bottom:1px solid #eee;">฿${formatMoney(tx.total || 0)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    if (orderDetailsModal) {
+        orderDetailsModal.classList.add('show');
+    }
 }
 
 // ============ INVENTORY ============
@@ -1340,30 +1392,29 @@ async function checkout() {
             }
         }
 
-        // Record all sales
-        for (const item of cart) {
-            const response = await fetch('/api/sell', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+        const response = await fetch('/api/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                items: cart.map(item => ({
                     code: item.code,
-                    quantity: item.quantity,
-                    payment: payment
-                })
-            });
-            
-            const result = await response.json();
-            if (!result.success) throw new Error(result.error);
-        }
+                    quantity: item.quantity
+                })),
+                payment: payment
+            })
+        });
+
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
 
         // Show change if cash
         if (payment === 'cash') {
             const total = calculateCartTotal();
             const received = parseFloat(receivedAmountEl?.value) || 0;
             const change = Math.max(0, received - total);
-            showNotification(`ชำระเงินสำเร็จ - เงินทอน ฿${formatMoney(change)}`, 'success');
+            showNotification(`ชำระเงินสำเร็จ เลขออเดอร์ ${result.orderId} - เงินทอน ฿${formatMoney(change)}`, 'success');
         } else {
-            showNotification('ชำระเงินสำเร็จ', 'success');
+            showNotification(`ชำระเงินสำเร็จ เลขออเดอร์ ${result.orderId}`, 'success');
         }
 
         // Reset cart and UI
@@ -1508,7 +1559,7 @@ async function loadReport() {
         
         // Update transactions table with pagination
         if (!data.transactions.length) {
-            transactionsTbodyEl.innerHTML = '<tr><td colspan="8" class="empty-message">ไม่มีรายการ</td></tr>';
+            transactionsTbodyEl.innerHTML = '<tr><td colspan="11" class="empty-message">ไม่มีรายการ</td></tr>';
             document.getElementById('report-page-info').textContent = 'หน้า 0';
             return;
         }
@@ -1526,7 +1577,7 @@ async function loadReport() {
 
 function displayTransactionsPage(transactions) {
     if (!transactions || !transactions.length) {
-        transactionsTbodyEl.innerHTML = '<tr><td colspan="10" class="empty-message">ไม่มีรายการ</td></tr>';
+        transactionsTbodyEl.innerHTML = '<tr><td colspan="11" class="empty-message">ไม่มีรายการ</td></tr>';
         document.getElementById('report-page-info').textContent = 'หน้า 0';
         return;
     }
@@ -1552,6 +1603,7 @@ function displayTransactionsPage(transactions) {
             <td style="text-align: center; font-weight: 500;">${startIdx + index + 1}</td>
             <td>${tx.datetime}</td>
             <td>${tx.type === 'sale' ? '✅ ขาย' : '❌ คืน'}</td>
+            <td>${tx.orderId ? `<button class="btn btn-secondary" style="padding:4px 8px;" onclick="openOrderDetailsModal('${tx.orderId}')">${tx.orderId}</button>` : '-'}</td>
             <td>${tx.code}</td>
             <td>${tx.name}</td>
             <td>฿${formatMoney(tx.unitPrice)}</td>

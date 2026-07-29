@@ -249,6 +249,7 @@
                                 <th style="width: 60px;">ลำดับ</th>
                                 <th>เวลา</th>
                                 <th>ประเภท</th>
+                                <th>เลขออเดอร์</th>
                                 <th>รหัส</th>
                                 <th>ชื่อสินค้า</th>
                                 <th>หน่วยละราคา</th>
@@ -422,6 +423,15 @@
 
     <!-- Notification -->
     <div id="notification" class="notification"></div>
+
+    <!-- Order Details Modal -->
+    <div id="order-details-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="order-details-close">&times;</span>
+            <h3>📋 รายละเอียดออเดอร์</h3>
+            <div id="order-details-content"></div>
+        </div>
+    </div>
 
     <!-- Add Product Modal (shown when scanned barcode not found) -->
     <div id="add-product-modal" class="modal">
