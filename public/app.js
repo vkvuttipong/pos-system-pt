@@ -62,6 +62,7 @@ const addProductModal = document.getElementById('add-product-modal');
 const addProductCodeInput = document.getElementById('add-product-code');
 const addProductNameInput = document.getElementById('add-product-name');
 const addProductPriceInput = document.getElementById('add-product-price');
+const addProductCostPriceInput = document.getElementById('add-product-cost-price');
 const addProductQtyInput = document.getElementById('add-product-qty');
 const confirmAddBtn = document.getElementById('confirm-add-btn');
 const cancelAddBtn = document.getElementById('cancel-add-btn');
@@ -221,6 +222,7 @@ function setupEventListeners() {
             const code = addProductCodeInput?.value || pendingNewProductCode || '';
             const name = (addProductNameInput?.value || '').trim();
             const price = parseFloat(addProductPriceInput?.value) || 0;
+            const costPrice = parseFloat(addProductCostPriceInput?.value) || 0;
             const qty = parseInt(addProductQtyInput?.value) || 0;
 
             if (!code || !name) {
@@ -232,7 +234,7 @@ function setupEventListeners() {
                 const response = await fetch('/api/product', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code, name, price, quantity: qty })
+                    body: JSON.stringify({ code, name, price, costPrice, quantity: qty })
                 });
                 const result = await response.json();
                 if (!result.success) throw new Error(result.error);
@@ -243,6 +245,7 @@ function setupEventListeners() {
                 if (addProductCodeInput) addProductCodeInput.value = '';
                 if (addProductNameInput) addProductNameInput.value = '';
                 if (addProductPriceInput) addProductPriceInput.value = '0.00';
+                if (addProductCostPriceInput) addProductCostPriceInput.value = '0.00';
                 if (addProductQtyInput) addProductQtyInput.value = 1;
                 loadInventory();
                 setTimeout(() => {
@@ -860,7 +863,7 @@ function updateInventorySummary(products) {
 
 function displayInventoryTable(products) {
     if (!products.length) {
-        inventoryTbodyEl.innerHTML = '<tr><td colspan="6" class="empty-message">ไม่มีสินค้า</td></tr>';
+        inventoryTbodyEl.innerHTML = '<tr><td colspan="7" class="empty-message">ไม่มีสินค้า</td></tr>';
         document.getElementById('pagination').style.display = 'none';
         updateInventorySummary(products);
         return;
@@ -913,6 +916,7 @@ function displayInventoryTable(products) {
         const rowNumber = startIndex + index + 1;
         const formattedExpiry = expiryDate ? formatDisplayDate(expiryDate) : '—';
         const expiryBadge = expiryWarning ? `<span class="expiry-badge">${expiryWarning}</span>` : '';
+        const costPrice = Number(product.costPrice) || 0;
         
         return `
             <tr class="${rowClass}">
@@ -920,6 +924,7 @@ function displayInventoryTable(products) {
                 <td>${product.code}</td>
                 <td>${product.name}</td>
                 <td>฿${formatMoney(product.price)}</td>
+                <td>฿${formatMoney(costPrice)}</td>
                 <td>${qty}${isLowStock ? ' ⚠️' : ''}</td>
                 <td>${formattedExpiry}${expiryBadge}</td>
                 <td>
@@ -1059,6 +1064,7 @@ function editProduct(code) {
     if (product) {
         const name = product.name || product.querySelector?.('h4')?.textContent.trim() || '';
         const price = (product.price !== undefined) ? product.price : (product.querySelector ? product.querySelector('.product-price').textContent.replace('฿', '').trim() : '0');
+        const costPrice = (product.costPrice !== undefined) ? product.costPrice : 0;
         const qty = (product.quantity !== undefined) ? product.quantity : (product.querySelector ? product.querySelector('.product-qty').textContent.replace('คงเหลือ: ', '').replace('⚠️', '').trim() : '0');
 
         editingProductCode = code;
@@ -1070,6 +1076,7 @@ function editProduct(code) {
 
         document.getElementById('edit-name').value = name;
         document.getElementById('edit-price').value = parseFloat(price) || 0;
+        document.getElementById('edit-cost-price').value = parseFloat(costPrice) || 0;
         document.getElementById('edit-qty').value = parseInt(qty) || 0;
         const expiryValue = product.expiryDate || '';
         document.getElementById('edit-expiry-date').value = expiryValue;
@@ -1098,6 +1105,7 @@ async function confirmEditProduct() {
     
     const name = document.getElementById('edit-name').value.trim();
     const price = parseFloat(document.getElementById('edit-price').value);
+    const costPrice = parseFloat(document.getElementById('edit-cost-price').value);
     const qty = parseInt(document.getElementById('edit-qty').value);
     const expiryDate = document.getElementById('edit-expiry-date').value;
     
@@ -1106,8 +1114,8 @@ async function confirmEditProduct() {
         return;
     }
     
-    if (price < 0 || qty < 0) {
-        showNotification('ราคาและจำนวนต้องมากกว่าหรือเท่ากับ 0', 'error');
+    if (price < 0 || costPrice < 0 || qty < 0) {
+        showNotification('ราคา ราคาต้นทุน และจำนวนต้องมากกว่าหรือเท่ากับ 0', 'error');
         return;
     }
     
@@ -1118,7 +1126,8 @@ async function confirmEditProduct() {
             body: JSON.stringify({ 
                 code: editingProductCode, 
                 name: name,
-                price: price, 
+                price: price,
+                costPrice: costPrice,
                 quantity: qty,
                 expiryDate: expiryDate || ''
             })

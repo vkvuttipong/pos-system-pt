@@ -46,8 +46,13 @@ function normalizeExpiryDate(value) {
   return '';
 }
 
+function normalizeNumber(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
 function formatMoney(value) {
-  const num = Number(value) || 0;
+  const num = normalizeNumber(value, 0);
   return num.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
@@ -68,6 +73,9 @@ function loadInventory() {
   if (!ws) return [];
   return XLSX.utils.sheet_to_json(ws, { defval: '' }).map((item) => ({
     ...item,
+    price: normalizeNumber(item.price, 0),
+    quantity: normalizeNumber(item.quantity, 0),
+    costPrice: normalizeNumber(item.costPrice, 0),
     expiryDate: normalizeExpiryDate(item.expiryDate)
   }));
 }
@@ -75,6 +83,9 @@ function loadInventory() {
 function saveInventory(items) {
   const normalized = (items || []).map((item) => ({
     ...item,
+    price: normalizeNumber(item.price, 0),
+    quantity: normalizeNumber(item.quantity, 0),
+    costPrice: normalizeNumber(item.costPrice, 0),
     expiryDate: normalizeExpiryDate(item.expiryDate)
   }));
   const wb = XLSX.utils.book_new();
@@ -140,17 +151,19 @@ function generateOrderId(date = null) {
   return `S${String(nextSequence).padStart(5, '0')}`;
 }
 
-function addProduct(code, name, price, qty, expiryDate = '') {
+function addProduct(code, name, price, qty, expiryDate = '', costPrice = 0) {
   const inv = loadInventory();
   const idx = inv.findIndex((i) => i.code === code);
   const normalizedExpiry = normalizeExpiryDate(expiryDate);
+  const normalizedCostPrice = normalizeNumber(costPrice, 0);
   if (idx >= 0) {
     inv[idx].quantity = Number(qty);
     inv[idx].price = Number(price);
+    inv[idx].costPrice = normalizedCostPrice;
     inv[idx].name = name;
     inv[idx].expiryDate = normalizedExpiry;
   } else {
-    inv.push({ code, name, price: Number(price), quantity: Number(qty), expiryDate: normalizedExpiry });
+    inv.push({ code, name, price: Number(price), quantity: Number(qty), costPrice: normalizedCostPrice, expiryDate: normalizedExpiry });
   }
   saveInventory(inv);
 }
@@ -277,7 +290,7 @@ app.get('/api/inventory', (req, res) => {
 // Add or update product
 app.post('/api/product', (req, res) => {
   try {
-    let { code, name, price, quantity, expiryDate } = req.body;
+    let { code, name, price, quantity, expiryDate, costPrice } = req.body;
     code = code ? String(code).trim() : '';
     // Accept requests with empty name/nullable price/quantity by applying defaults
     if (!code) {
@@ -287,9 +300,10 @@ app.post('/api/product', (req, res) => {
     name = (name === undefined || name === null || String(name).trim() === '') ? null : String(name).trim();
     price = price === undefined || price === null ? 0 : Number(price);
     quantity = quantity === undefined || quantity === null ? 0 : Number(quantity);
+    costPrice = costPrice === undefined || costPrice === null ? 0 : normalizeNumber(costPrice, 0);
     const normalizedExpiry = normalizeExpiryDate(expiryDate);
 
-    addProduct(code, name, price, quantity, normalizedExpiry);
+    addProduct(code, name, price, quantity, normalizedExpiry, costPrice);
     res.json({ success: true, message: 'เพิ่มสินค้าสำเร็จ' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

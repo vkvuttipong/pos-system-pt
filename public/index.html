@@ -151,6 +151,7 @@
                                 <th class="sortable" data-sort="code">รหัส <span class="sort-icon">⇅</span></th>
                                 <th class="sortable" data-sort="name">ชื่อสินค้า <span class="sort-icon">⇅</span></th>
                                 <th class="sortable" data-sort="price">ราคา <span class="sort-icon">⇅</span></th>
+                                <th class="sortable" data-sort="costPrice">ราคาทุน<span class="sort-icon">⇅</span></th>
                                 <th class="sortable" data-sort="quantity">จำนวน <span class="sort-icon">⇅</span></th>
                                 <th class="sortable" data-sort="expiryDate">วันหมดอายุ <span class="sort-icon">⇅</span></th>
                                 <th>การดำเนินการ</th>
@@ -402,6 +403,10 @@
                 <input type="number" id="edit-price" placeholder="ราคา" min="0" step="0.01" required>
             </div>
             <div class="edit-form-group">
+                <label>ราคาต้นทุนต่อหน่วย</label>
+                <input type="number" id="edit-cost-price" placeholder="ราคาต้นทุน" min="0" step="0.01" required>
+            </div>
+            <div class="edit-form-group">
                 <label>จำนวน (ค่าใหม่จะแทนที่ค่าเดิม)</label>
                 <div class="quantity-control">
                     <button type="button" class="qty-btn qty-minus" id="edit-qty-minus-btn">−</button>
@@ -447,6 +452,9 @@
 
                 <label>ราคา</label>
                 <input type="number" id="add-product-price" placeholder="ราคา" min="0" step="0.01" value="0.00" required>
+
+                <label>ราคาต้นทุนต่อหน่วย</label>
+                <input type="number" id="add-product-cost-price" placeholder="ราคาต้นทุน" min="0" step="0.01" value="0.00" required>
 
                 <label>จำนวน</label>
                 <input type="number" id="add-product-qty" placeholder="จำนวน" min="0" value="1" required>
