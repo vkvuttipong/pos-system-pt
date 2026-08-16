@@ -101,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAvailableDates();
     
     setupEventListeners();
+    initTheme();
     // Auto-focus barcode input for scanner convenience
     if (barcodeInputEl) {
         barcodeInputEl.focus();
@@ -120,6 +121,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // initialize payment UI
     updatePaymentUI();
 });
+
+// ============ THEME (Dark/Light) ============
+function applyTheme(isDark) {
+    if (isDark) document.body.classList.add('dark-theme');
+    else document.body.classList.remove('dark-theme');
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = isDark ? '☀️' : '🌙';
+}
+
+function initTheme() {
+    try {
+        const saved = localStorage.getItem('pos_theme') || 'light';
+        const isDark = saved === 'dark';
+        applyTheme(isDark);
+        const toggle = document.getElementById('theme-toggle');
+        if (toggle) {
+            toggle.addEventListener('click', () => {
+                const nowDark = !document.body.classList.contains('dark-theme');
+                applyTheme(nowDark);
+                localStorage.setItem('pos_theme', nowDark ? 'dark' : 'light');
+            });
+        }
+    } catch (e) {
+        // ignore storage errors
+    }
+}
 
 // ============ EVENT LISTENERS ============
 function setupEventListeners() {
