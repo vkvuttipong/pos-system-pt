@@ -43,6 +43,7 @@ const topProductsTbodyEl = document.getElementById('top-products-tbody');
 const topProductsInfoEl = document.getElementById('top-products-info');
 const barcodeInputEl = document.getElementById('barcode-input');
 const productCodeInput = document.getElementById('product-code');
+const inventoryNameSearchInput = document.getElementById('product-code');
 const inventoryTotalValueEl = document.getElementById('inventory-total-value');
 // Payment confirm modal elements
 const paymentConfirmModal = document.getElementById('payment-confirm-modal');
@@ -83,6 +84,51 @@ const denomButtons = {
 };
 
 let pendingNewProductCode = null;
+let paymentAudioContext = null;
+
+function preparePaymentSound() {
+    if (!paymentAudioContext) {
+        paymentAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return paymentAudioContext.state === 'suspended'
+        ? paymentAudioContext.resume()
+        : Promise.resolve();
+}
+
+async function playPaymentSound() {
+    try {
+        await preparePaymentSound();
+        if (paymentAudioContext.state !== 'running') throw new Error('AudioContext is not running');
+        const now = paymentAudioContext.currentTime;
+        const oscillator = paymentAudioContext.createOscillator();
+        const gain = paymentAudioContext.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, now);
+        oscillator.frequency.setValueAtTime(1175, now + 0.1);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.45, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+        oscillator.connect(gain);
+        gain.connect(paymentAudioContext.destination);
+        oscillator.start(now);
+        oscillator.stop(now + 0.28);
+    } catch (error) {
+        console.warn('เล่นเสียงแจ้งเตือนไม่ได้:', error);
+    }
+}
+
+function announcePaymentAmount(amount) {
+    if (!('speechSynthesis' in window)) return;
+    const numericAmount = Number(amount || 0);
+    const formattedAmount = numericAmount.toLocaleString('th-TH', Number.isInteger(numericAmount)
+        ? { maximumFractionDigits: 0 }
+        : { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const announcement = new SpeechSynthesisUtterance(`ยอดชำระเงิน ${formattedAmount} บาท`);
+    announcement.lang = 'th-TH';
+    announcement.rate = 0.9;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(announcement);
+}
 
 function formatMoney(value) {
     const num = Number(value) || 0;
@@ -106,14 +152,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (barcodeInputEl) {
         barcodeInputEl.focus();
     }
-    // If page starts on inventory tab, focus the product code input
+    // If page starts on inventory tab, focus the product name search
     const inventoryTabBtn = document.querySelector('[data-tab="inventory"]');
     if (inventoryTabBtn && inventoryTabBtn.classList.contains('active')) {
         setTimeout(() => {
-            const codeInput = document.getElementById('product-code');
-            if (codeInput) {
-                codeInput.focus();
-                codeInput.select();
+            if (inventoryNameSearchInput) {
+                inventoryNameSearchInput.focus();
+                inventoryNameSearchInput.select();
             }
         }, 50);
     }
@@ -184,6 +229,13 @@ function setupEventListeners() {
                 const val = productCodeInput.value || paste;
                 if (val) handleInventoryCodeInput(val);
             }, 10);
+        });
+    }
+
+    if (productCodeInput) {
+        productCodeInput.addEventListener('input', () => {
+            currentPage = 1;
+            displayInventoryTable(inventoryData);
         });
     }
     
@@ -444,7 +496,7 @@ function setupEventListeners() {
     });
 
     document.getElementById('next-page-btn').addEventListener('click', () => {
-        const totalPages = Math.ceil(inventoryData.length / itemsPerPage);
+        const totalPages = Math.ceil(getFilteredInventoryData().length / itemsPerPage);
         if (currentPage < totalPages) {
             currentPage++;
             displayInventoryTable(inventoryData);
@@ -575,6 +627,7 @@ function setupEventListeners() {
     if (confirmPaymentBtn) confirmPaymentBtn.addEventListener('click', () => {
         // call existing checkout handler
         // hide modal first
+        preparePaymentSound().catch(() => {});
         if (paymentConfirmModal) paymentConfirmModal.classList.remove('show');
         checkout();
     });
@@ -744,13 +797,12 @@ function switchTab(tabName) {
             barcodeInputEl.select();
         }, 50);
     }
-    // Auto-focus product code when switching to Inventory tab
+    // Auto-focus product name search when switching to Inventory tab
     if (tabName === 'inventory') {
         setTimeout(() => {
-            const codeInput = document.getElementById('product-code');
-            if (codeInput) {
-                codeInput.focus();
-                codeInput.select();
+            if (inventoryNameSearchInput) {
+                inventoryNameSearchInput.focus();
+                inventoryNameSearchInput.select();
             }
         }, 50);
     }
@@ -888,19 +940,39 @@ function updateInventorySummary(products) {
     }
 }
 
+function getFilteredInventoryData() {
+    const searchTerm = String(inventoryNameSearchInput?.value || '')
+        .normalize('NFC')
+        .trim()
+        .toLocaleLowerCase('th-TH');
+    if (!searchTerm) return [...inventoryData];
+
+    return inventoryData.filter(product => {
+        const productName = String(product.name || '')
+            .normalize('NFC')
+            .toLocaleLowerCase('th-TH');
+        const productCode = String(product.code || '')
+            .normalize('NFC')
+            .toLocaleLowerCase('th-TH');
+        return productName.includes(searchTerm) || productCode.includes(searchTerm);
+    });
+}
+
 function displayInventoryTable(products) {
-    if (!products.length) {
+    inventoryData = products;
+
+    const filteredData = getFilteredInventoryData();
+    if (!filteredData.length) {
         inventoryTbodyEl.innerHTML = '<tr><td colspan="7" class="empty-message">ไม่มีสินค้า</td></tr>';
         document.getElementById('pagination').style.display = 'none';
-        updateInventorySummary(products);
+        updateInventorySummary(inventoryData);
         return;
     }
-    
-    inventoryData = products;
-    updateInventorySummary(products);
+
+    updateInventorySummary(inventoryData);
     
     // Sort data
-    let sortedData = [...inventoryData];
+    let sortedData = [...filteredData];
     if (sortColumn) {
         sortedData.sort((a, b) => {
             let aVal = a[sortColumn];
@@ -929,6 +1001,7 @@ function displayInventoryTable(products) {
     
     // Pagination
     const totalPages = Math.ceil(sortedData.length / itemsPerPage);
+    if (currentPage > totalPages) currentPage = totalPages;
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const pageData = sortedData.slice(startIndex, endIndex);
@@ -1416,11 +1489,11 @@ async function checkout() {
     }
     
     const payment = document.querySelector('input[name="payment"]:checked').value;
+    const total = calculateCartTotal();
     
     try {
         // If cash, ensure received amount is enough
         if (payment === 'cash') {
-            const total = calculateCartTotal();
             const received = parseFloat(receivedAmountEl?.value) || 0;
             if (received < total) {
                 showNotification('รับเงินไม่พอ กรุณากรอกจำนวนที่รับ', 'error');
@@ -1443,9 +1516,11 @@ async function checkout() {
         const result = await response.json();
         if (!result.success) throw new Error(result.error);
 
+        await playPaymentSound();
+        announcePaymentAmount(total);
+
         // Show change if cash
         if (payment === 'cash') {
-            const total = calculateCartTotal();
             const received = parseFloat(receivedAmountEl?.value) || 0;
             const change = Math.max(0, received - total);
             showNotification(`ชำระเงินสำเร็จ เลขออเดอร์ ${result.orderId} - เงินทอน ฿${formatMoney(change)}`, 'success');

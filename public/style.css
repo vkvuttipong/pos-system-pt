@@ -98,6 +98,8 @@ body {
     position: absolute;
     right: 16px;
     top: 12px;
+    display: flex;
+    gap: 8px;
 }
 
 .theme-toggle {
@@ -769,6 +771,10 @@ body {
     border-radius: 10px;
     font-size: 0.95em;
     background: white;
+}
+
+.form-grid input[type="search"] {
+    min-width: 220px;
 }
 
 .form-grid input:focus,
