@@ -45,6 +45,12 @@ const barcodeInputEl = document.getElementById('barcode-input');
 const productCodeInput = document.getElementById('product-code');
 const inventoryNameSearchInput = document.getElementById('product-code');
 const inventoryTotalValueEl = document.getElementById('inventory-total-value');
+const purchaseSelectionCountEl = document.getElementById('purchase-selection-count');
+const exportPurchaseOrderBtn = document.getElementById('export-purchase-order-btn');
+const purchasePreviewModal = document.getElementById('purchase-preview-modal');
+const purchasePreviewTbodyEl = document.getElementById('purchase-preview-tbody');
+const purchasePreviewTotalEl = document.getElementById('purchase-preview-total');
+const purchaseSelections = new Map();
 // Payment confirm modal elements
 const paymentConfirmModal = document.getElementById('payment-confirm-modal');
 const orderDetailsModal = document.getElementById('order-details-modal');
@@ -238,6 +244,16 @@ function setupEventListeners() {
             displayInventoryTable(inventoryData);
         });
     }
+
+    if (exportPurchaseOrderBtn) {
+        exportPurchaseOrderBtn.addEventListener('click', previewPurchaseOrder);
+    }
+    const confirmExportPurchaseBtn = document.getElementById('confirm-export-purchase-btn');
+    if (confirmExportPurchaseBtn) confirmExportPurchaseBtn.addEventListener('click', exportPurchaseOrder);
+    const cancelPurchasePreviewBtn = document.getElementById('cancel-purchase-preview-btn');
+    if (cancelPurchasePreviewBtn) cancelPurchasePreviewBtn.addEventListener('click', () => purchasePreviewModal?.classList.remove('show'));
+    const purchasePreviewClose = document.getElementById('purchase-preview-close');
+    if (purchasePreviewClose) purchasePreviewClose.addEventListener('click', () => purchasePreviewModal?.classList.remove('show'));
     
 
     // Report
@@ -963,7 +979,7 @@ function displayInventoryTable(products) {
 
     const filteredData = getFilteredInventoryData();
     if (!filteredData.length) {
-        inventoryTbodyEl.innerHTML = '<tr><td colspan="7" class="empty-message">ไม่มีสินค้า</td></tr>';
+        inventoryTbodyEl.innerHTML = '<tr><td colspan="8" class="empty-message">ไม่มีสินค้า</td></tr>';
         document.getElementById('pagination').style.display = 'none';
         updateInventorySummary(inventoryData);
         return;
@@ -1021,6 +1037,9 @@ function displayInventoryTable(products) {
         return `
             <tr class="${rowClass}">
                 <td style="text-align: center; font-weight: 500;">${rowNumber}</td>
+                <td class="purchase-select-cell">
+                    <input type="checkbox" class="purchase-select" data-code="${product.code}" ${purchaseSelections.has(String(product.code)) ? 'checked' : ''} aria-label="เลือก ${product.name} สำหรับรายการซื้อ">
+                </td>
                 <td>${product.code}</td>
                 <td>${product.name}</td>
                 <td>฿${formatMoney(product.price)}</td>
@@ -1036,6 +1055,18 @@ function displayInventoryTable(products) {
             </tr>
         `;
     }).join('');
+
+    inventoryTbodyEl.querySelectorAll('.purchase-select').forEach((checkbox) => {
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+                purchaseSelections.set(String(checkbox.dataset.code), purchaseSelections.get(String(checkbox.dataset.code)) || 1);
+            } else {
+                purchaseSelections.delete(String(checkbox.dataset.code));
+            }
+            updatePurchaseSelectionCount();
+        });
+    });
+    updatePurchaseSelectionCount();
     
     // Update pagination info
     document.getElementById('current-page').textContent = currentPage;
@@ -1108,6 +1139,92 @@ function displayInventoryTable(products) {
     
     // Update sort icons
     updateSortIcons();
+}
+
+function updatePurchaseSelectionCount() {
+    if (purchaseSelectionCountEl) {
+        purchaseSelectionCountEl.textContent = `เลือกแล้ว ${purchaseSelections.size} รายการ`;
+    }
+}
+
+function getSelectedPurchaseItems() {
+    return inventoryData
+        .filter((product) => purchaseSelections.has(String(product.code)))
+        .map((product) => {
+            const quantity = purchaseSelections.get(String(product.code));
+            return {
+                code: product.code,
+                name: product.name || '',
+                currentQuantity: Number(product.quantity) || 0,
+                purchaseQuantity: quantity,
+                costPrice: Number(product.costPrice) || 0,
+                total: quantity * (Number(product.costPrice) || 0)
+            };
+        });
+}
+
+function previewPurchaseOrder() {
+    const selectedItems = getSelectedPurchaseItems();
+
+    if (!selectedItems.length) {
+        showNotification('กรุณาเลือกสินค้าที่ต้องการซื้อเพิ่มอย่างน้อย 1 รายการ', 'error');
+        return;
+    }
+
+    purchasePreviewTbodyEl.innerHTML = selectedItems.map((item, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td>${item.code}</td>
+            <td>${item.name}</td>
+            <td>${item.currentQuantity}</td>
+            <td><input type="number" class="preview-purchase-quantity" data-code="${item.code}" min="1" step="1" value="${item.purchaseQuantity}"></td>
+            <td>฿${formatMoney(item.costPrice)}</td>
+            <td>฿${formatMoney(item.total)}</td>
+        </tr>
+    `).join('');
+    purchasePreviewTbodyEl.querySelectorAll('.preview-purchase-quantity').forEach((input) => {
+        input.addEventListener('change', () => {
+            const quantity = Math.max(1, parseInt(input.value, 10) || 1);
+            input.value = quantity;
+            purchaseSelections.set(String(input.dataset.code), quantity);
+            previewPurchaseOrder();
+        });
+    });
+    const total = selectedItems.reduce((sum, item) => sum + item.total, 0);
+    purchasePreviewTotalEl.textContent = `฿${formatMoney(total)}`;
+    purchasePreviewModal.classList.add('show');
+}
+
+async function exportPurchaseOrder() {
+    const selectedItems = getSelectedPurchaseItems();
+
+    if (!selectedItems.length) {
+        purchasePreviewModal?.classList.remove('show');
+        showNotification('ไม่พบรายการสำหรับ export', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/purchase-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: selectedItems })
+        });
+        if (!response.ok) {
+            const result = await response.json().catch(() => ({}));
+            throw new Error(result.error || 'สร้างไฟล์ Excel ไม่สำเร็จ');
+        }
+        const blob = await response.blob();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `รายการซื้อเพิ่ม_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+        purchasePreviewModal?.classList.remove('show');
+        showNotification(`ส่งออก Excel ${selectedItems.length} รายการแล้ว`, 'success');
+    } catch (error) {
+        showNotification('ส่งออก Excel ไม่สำเร็จ: ' + error.message, 'error');
+    }
 }
 
 function formatDisplayDate(value) {

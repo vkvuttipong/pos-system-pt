@@ -541,6 +541,43 @@ app.get('/api/available-dates', (req, res) => {
   }
 });
 
+// Export purchase order as an Excel workbook with readable column widths
+app.post('/api/purchase-order', (req, res) => {
+  try {
+    const items = Array.isArray(req.body.items) ? req.body.items : [];
+    if (!items.length) {
+      return res.status(400).json({ success: false, error: 'ไม่มีรายการซื้อ' });
+    }
+
+    const rows = [
+      ['รหัสสินค้า', 'ชื่อสินค้า', 'คงเหลือ', 'จำนวนที่ต้องซื้อ', 'ราคาทุนต่อหน่วย', 'ยอดประมาณการ'],
+      ...items.map((item) => [
+        String(item.code || ''),
+        String(item.name || ''),
+        normalizeNumber(item.currentQuantity, 0),
+        normalizeNumber(item.purchaseQuantity, 0),
+        normalizeNumber(item.costPrice, 0),
+        normalizeNumber(item.total, 0)
+      ]),
+      [],
+      ['ยอดรวมทั้งหมด', '', '', '', '', items.reduce((sum, item) => sum + normalizeNumber(item.total, 0), 0)]
+    ];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 18 }, { wch: 30 }, { wch: 12 },
+      { wch: 18 }, { wch: 20 }, { wch: 18 }
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, 'รายการซื้อ');
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="purchase-order.xlsx"');
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Delete product
 app.delete('/api/product/:code', (req, res) => {
   try {

@@ -141,6 +141,14 @@
                     </div>
                 </div>
 
+                <div class="purchase-order-toolbar">
+                    <div>
+                        <strong>รายการซื้อเพิ่ม</strong>
+                        <span id="purchase-selection-count">เลือกแล้ว 0 รายการ</span>
+                    </div>
+                    <button class="btn btn-primary" id="export-purchase-order-btn">📤 ส่งออกรายการซื้อ</button>
+                </div>
+
                 <!-- Inventory Table -->
                 <div class="table-responsive">
                     <h3>📋 รายการสินค้าทั้งหมด</h3>
@@ -151,6 +159,7 @@
                         <thead>
                             <tr>
                                 <th style="width: 60px;">ลำดับ</th>
+                                <th>เลือก</th>
                                 <th class="sortable" data-sort="code">รหัส <span class="sort-icon">⇅</span></th>
                                 <th class="sortable" data-sort="name">ชื่อสินค้า <span class="sort-icon">⇅</span></th>
                                 <th class="sortable" data-sort="price">ราคา <span class="sort-icon">⇅</span></th>
@@ -161,7 +170,7 @@
                             </tr>
                         </thead>
                         <tbody id="inventory-tbody">
-                            <tr><td colspan="5" class="loading">กำลังโหลดข้อมูล...</td></tr>
+                            <tr><td colspan="9" class="loading">กำลังโหลดข้อมูล...</td></tr>
                         </tbody>
                     </table>
                     <div class="pagination-selector">
@@ -443,6 +452,37 @@
             <span class="close" id="order-details-close">&times;</span>
             <h3>📋 รายละเอียดออเดอร์</h3>
             <div id="order-details-content"></div>
+        </div>
+    </div>
+
+    <!-- Purchase order preview modal -->
+    <div id="purchase-preview-modal" class="modal">
+        <div class="modal-content purchase-preview-content">
+            <span class="close" id="purchase-preview-close">&times;</span>
+            <h3>📋 รายการซื้อเพิ่ม</h3>
+            <div class="table-responsive purchase-preview-table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ลำดับ</th>
+                            <th>รหัส</th>
+                            <th>ชื่อสินค้า</th>
+                            <th>คงเหลือ</th>
+                            <th>จำนวนที่ซื้อ</th>
+                            <th>ราคาทุน/หน่วย</th>
+                            <th>ยอดประมาณการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="purchase-preview-tbody"></tbody>
+                </table>
+            </div>
+            <div class="purchase-preview-total">
+                ยอดประมาณการรวม: <strong id="purchase-preview-total">฿0.00</strong>
+            </div>
+            <div class="button-group">
+                <button class="btn btn-success" id="confirm-export-purchase-btn">✅ Export Excel</button>
+                <button class="btn btn-secondary" id="cancel-purchase-preview-btn">กลับไปแก้ไข</button>
+            </div>
         </div>
     </div>
 
