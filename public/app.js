@@ -78,6 +78,7 @@ const receivedAmountEl = document.getElementById('received-amount');
 const changeAmountEl = document.getElementById('change-amount');
 const cashControlsEl = document.getElementById('cash-controls');
 const clearReceivedBtn = document.getElementById('clear-received-btn');
+const exactAmountBtn = document.getElementById('exact-amount-btn');
 const denomButtons = {
     1000: document.getElementById('bill-1000'),
     500: document.getElementById('bill-500'),
@@ -567,6 +568,13 @@ function setupEventListeners() {
     if (clearReceivedBtn) {
         clearReceivedBtn.addEventListener('click', () => {
             receivedAmountEl.value = '0.00';
+            updatePaymentUI();
+        });
+    }
+
+    if (exactAmountBtn) {
+        exactAmountBtn.addEventListener('click', () => {
+            receivedAmountEl.value = calculateCartTotal().toFixed(2);
             updatePaymentUI();
         });
     }
